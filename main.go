@@ -45,13 +45,7 @@ func pinCmd() *cobra.Command {
 		Use:   "pin",
 		Short: "Pin module or repository versions in .tf files",
 	}
-	cmd.AddCommand(pinModuleCmd())
-	cmd.AddCommand(pinRepoCmd())
-	return cmd
-}
-
-func pinModuleCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd.AddCommand(&cobra.Command{
 		Use:   "module <path> <version>",
 		Short: "Pin a specific module path to a version",
 		Long: `Updates source = "...//path?ref=..." for an exact module path.
@@ -62,11 +56,8 @@ func pinModuleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return pin.UpdateModule(".", args[0], args[1])
 		},
-	}
-}
-
-func pinRepoCmd() *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "repo <name> <version>",
 		Short: "Pin all references to a repository to a version",
 		Long: `Updates all source = ".../<name>.git/...?ref=..." regardless of subdirectory.
@@ -76,10 +67,11 @@ func pinRepoCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return pin.UpdateRepo(".", args[0], args[1])
 		},
-	}
+	})
+	return cmd
 }
 
-// filterDirs removes any directory that equals an exclude prefix or is nested under one.
+// filterDirs removes directories that equal an exclude entry or are nested under one.
 func filterDirs(dirs []string, excludes []string) []string {
 	if len(excludes) == 0 {
 		return dirs
@@ -109,15 +101,7 @@ func applyCmd() *cobra.Command {
 		Short: "Run tf init + tf apply across Terraform directories",
 	}
 	cmd.PersistentFlags().StringArrayVar(&excludes, "exclude", nil, "Exclude directories matching this prefix (repeatable)")
-	cmd.AddCommand(applyGitCmd(&excludes))
-	cmd.AddCommand(applyAllCmd(&excludes))
-	cmd.AddCommand(applyStagedCmd(&excludes))
-	cmd.AddCommand(applyDirCmd(&excludes))
-	return cmd
-}
-
-func applyGitCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	cmd.AddCommand(&cobra.Command{
 		Use:   "git",
 		Short: "Apply in all directories with git changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -125,13 +109,10 @@ func applyGitCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Apply(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func applyAllCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "all",
 		Short: "Apply in all directories containing .tf files",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -139,13 +120,10 @@ func applyAllCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Apply(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func applyStagedCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "staged",
 		Short: "Apply in directories with staged git changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -153,20 +131,18 @@ func applyStagedCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Apply(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func applyDirCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "dir <path>",
 		Short: "Apply in a specific directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return workflow.Apply(filterDirs([]string{args[0]}, *excludes), tfBin)
+			return workflow.Apply([]string{args[0]}, tfBin)
 		},
-	}
+	})
+	return cmd
 }
 
 // ── plan ─────────────────────────────────────────────────────────────────────
@@ -178,15 +154,7 @@ func planCmd() *cobra.Command {
 		Short: "Run tf plan and summarize results across Terraform directories",
 	}
 	cmd.PersistentFlags().StringArrayVar(&excludes, "exclude", nil, "Exclude directories matching this prefix (repeatable)")
-	cmd.AddCommand(planGitCmd(&excludes))
-	cmd.AddCommand(planAllCmd(&excludes))
-	cmd.AddCommand(planStagedCmd(&excludes))
-	cmd.AddCommand(planDirCmd(&excludes))
-	return cmd
-}
-
-func planGitCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	cmd.AddCommand(&cobra.Command{
 		Use:   "git",
 		Short: "Summarize plan for directories with git changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -194,13 +162,10 @@ func planGitCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Plan(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func planAllCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "all",
 		Short: "Summarize plan for all directories containing .tf files",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -208,13 +173,10 @@ func planAllCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Plan(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func planStagedCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "staged",
 		Short: "Summarize plan for directories with staged git changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -222,18 +184,16 @@ func planStagedCmd(excludes *[]string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return workflow.Plan(filterDirs(dirs, *excludes), tfBin)
+			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
 		},
-	}
-}
-
-func planDirCmd(excludes *[]string) *cobra.Command {
-	return &cobra.Command{
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use:   "dir <path>",
 		Short: "Summarize plan for a specific directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return workflow.Plan(filterDirs([]string{args[0]}, *excludes), tfBin)
+			return workflow.Plan([]string{args[0]}, tfBin)
 		},
-	}
+	})
+	return cmd
 }
