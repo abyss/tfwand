@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 // UpdateModule walks root for .tf files and updates source references that
@@ -54,13 +56,24 @@ func UpdateModule(root, modulePath, version string) error {
 		return fmt.Sprintf("%s%s?ref=%s%s", prefix, module, version, quote)
 	}
 
-	return walkAndUpdate(root, func(content string) string {
+	n, err := walkAndUpdate(root, func(content string) string {
 		return pattern.ReplaceAllStringFunc(content, replace)
 	})
+	if err != nil {
+		return err
+	}
+
+	noun := "files"
+	if n == 1 {
+		noun = "file"
+	}
+	color.New(color.FgGreen, color.Bold).Printf("Pinned %d %s\n", n, noun)
+	return nil
 }
 
-func walkAndUpdate(root string, transform func(string) string) error {
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+func walkAndUpdate(root string, transform func(string) string) (int, error) {
+	var count int
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -80,7 +93,10 @@ func walkAndUpdate(root string, transform func(string) string) error {
 		if updated == original {
 			return nil
 		}
-		fmt.Printf("Updated %s\n", path)
+		color.New(color.Bold).Print("Updated ")
+		color.New(color.FgCyan).Println(path)
+		count++
 		return os.WriteFile(path, []byte(updated), 0o644)
 	})
+	return count, err
 }

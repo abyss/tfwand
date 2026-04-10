@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 type planResult struct {
@@ -19,22 +21,29 @@ type planResult struct {
 // output, and prints a one-line summary per directory followed by a totals block.
 func Plan(dirs []string, tfBin string) error {
 	if len(dirs) == 0 {
-		fmt.Println("No matching directories found.")
+		color.Yellow("No matching directories found.")
 		return nil
 	}
 
 	results := make([]planResult, 0, len(dirs))
 
-	for _, dir := range dirs {
+	dim := color.New(color.FgHiBlack)
+	for i, dir := range dirs {
+		dim.Printf("[%d/%d] ", i+1, len(dirs))
 		fmt.Printf("Planning %s...\n", dir)
 		r := planDir(dir, tfBin)
 		results = append(results, r)
 	}
 
-	fmt.Println()
-	fmt.Println("══════════════════════════════════════════")
-	fmt.Println("  Plan Summary")
-	fmt.Println("══════════════════════════════════════════")
+	cyan := color.New(color.FgCyan)
+	cyan.Println("\n══════════════════════════════════════════")
+	color.New(color.FgCyan, color.Bold).Println("  Plan Summary")
+	cyan.Println("══════════════════════════════════════════")
+
+	red := color.New(color.FgRed)
+	redBold := color.New(color.FgRed, color.Bold)
+	yellow := color.New(color.FgYellow)
+	green := color.New(color.FgGreen)
 
 	var changed, noChange, outputOnly, failed int
 	for _, r := range results {
@@ -42,25 +51,26 @@ func Plan(dirs []string, tfBin string) error {
 		case "changed":
 			changed++
 			if r.summary != "" {
-				fmt.Printf("🚨  %s\n    %s\n", r.dir, r.summary)
+				red.Printf("🚨  %s\n    %s\n", r.dir, r.summary)
 			} else {
-				fmt.Printf("🚨  %s — changes detected\n", r.dir)
+				red.Printf("🚨  %s — changes detected\n", r.dir)
 			}
 		case "output-only":
 			outputOnly++
-			fmt.Printf("⚠️   %s — output-only changes\n", r.dir)
+			yellow.Printf("⚠️   %s — output-only changes\n", r.dir)
 		case "failed":
 			failed++
-			fmt.Printf("❌  %s — plan failed: %v\n", r.dir, r.err)
+			redBold.Printf("❌  %s — plan failed: %v\n", r.dir, r.err)
 		default:
 			noChange++
-			fmt.Printf("✅  %s\n", r.dir)
+			green.Printf("✅  %s\n", r.dir)
 		}
 	}
 
-	fmt.Println()
-	fmt.Printf("Total: %d dirs — 🚨 %d changed, ⚠️  %d output-only, ✅ %d no changes, ❌ %d failed\n",
-		len(results), changed, outputOnly, noChange, failed)
+	fmt.Printf(
+		"\nTotal: %d dirs — 🚨 %d changed, ⚠️  %d output-only, ✅ %d no changes, ❌ %d failed\n",
+		len(results), changed, outputOnly, noChange, failed,
+	)
 
 	if failed > 0 {
 		return fmt.Errorf("%d plan(s) failed", failed)

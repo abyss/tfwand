@@ -21,8 +21,9 @@ func main() {
 
 func rootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "wand",
-		Short: "tfwand — OpenTofu/Terraform utility toolkit",
+		Use:          "wand",
+		Short:        "tfwand — OpenTofu/Terraform utility toolkit",
+		SilenceUsage: true,
 	}
 
 	defaultTF := os.Getenv("WAND_TF_BIN")

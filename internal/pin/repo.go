@@ -3,6 +3,8 @@ package pin
 import (
 	"fmt"
 	"regexp"
+
+	"github.com/fatih/color"
 )
 
 // UpdateRepo walks root for .tf files and updates all source references to
@@ -31,7 +33,17 @@ func UpdateRepo(root, repoName, version string) error {
 		return fmt.Sprintf("%s%s%s?ref=%s%s", prefix, repo, subdir, version, quote)
 	}
 
-	return walkAndUpdate(root, func(content string) string {
+	n, err := walkAndUpdate(root, func(content string) string {
 		return pattern.ReplaceAllStringFunc(content, replace)
 	})
+	if err != nil {
+		return err
+	}
+
+	noun := "files"
+	if n == 1 {
+		noun = "file"
+	}
+	color.New(color.FgGreen, color.Bold).Printf("Pinned %d %s\n", n, noun)
+	return nil
 }
