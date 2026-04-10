@@ -42,6 +42,13 @@ wand plan staged       # directories with staged git changes
 wand plan dir ./prod   # a single directory
 ```
 
+Use `--exclude` to skip directories matching a prefix (repeatable):
+
+```bash
+wand plan all --exclude prod
+wand plan all --exclude prod --exclude staging/legacy
+```
+
 ### Apply
 
 Run `tf init` + `tf apply` across multiple directories:
@@ -51,6 +58,13 @@ wand apply all         # all directories containing .tf files
 wand apply git         # directories with git changes
 wand apply staged      # directories with staged git changes
 wand apply dir ./prod  # a single directory
+```
+
+Use `--exclude` to skip directories matching a prefix (repeatable):
+
+```bash
+wand apply all --exclude prod
+wand apply git --exclude prod --exclude staging/legacy
 ```
 
 ### Options
