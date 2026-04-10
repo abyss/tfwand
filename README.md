@@ -38,6 +38,7 @@ Summarise `tf plan` output across multiple directories:
 ```bash
 wand plan all          # all directories containing .tf files
 wand plan git          # directories with git changes
+wand plan staged       # directories with staged git changes
 wand plan dir ./prod   # a single directory
 ```
 
@@ -48,6 +49,7 @@ Run `tf init` + `tf apply` across multiple directories:
 ```bash
 wand apply all         # all directories containing .tf files
 wand apply git         # directories with git changes
+wand apply staged      # directories with staged git changes
 wand apply dir ./prod  # a single directory
 ```
 
