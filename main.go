@@ -6,6 +6,7 @@ import (
 
 	"github.com/abyss/tfwand/internal/gitfiles"
 	"github.com/abyss/tfwand/internal/pin"
+	"github.com/abyss/tfwand/internal/source"
 	"github.com/abyss/tfwand/internal/tffiles"
 	"github.com/abyss/tfwand/internal/workflow"
 	"github.com/spf13/cobra"
@@ -35,6 +36,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(pinCmd())
 	root.AddCommand(applyCmd())
 	root.AddCommand(planCmd())
+	root.AddCommand(sourceCmd())
 
 	return root
 }
@@ -91,6 +93,15 @@ func filterDirs(dirs []string, excludes []string) []string {
 		}
 	}
 	return out
+}
+
+// sourceFiles returns the .tf files in scope: everything under the current directory
+// recursively, or only those directly inside dir when --dir is given.
+func sourceFiles(dir string) ([]string, error) {
+	if dir != "" {
+		return tffiles.FilesInDir(dir)
+	}
+	return tffiles.Files(".")
 }
 
 // ── apply ────────────────────────────────────────────────────────────────────
@@ -196,5 +207,77 @@ func planCmd() *cobra.Command {
 			return workflow.Plan([]string{args[0]}, tfBin)
 		},
 	})
+	return cmd
+}
+
+// ── source ───────────────────────────────────────────────────────────────────
+
+func sourceCmd() *cobra.Command {
+	var dir string
+	var check bool
+	cmd := &cobra.Command{
+		Use:     "source",
+		Aliases: []string{"src"},
+		Short:   "Swap module sources between git refs and local sibling checkouts",
+	}
+	cmd.PersistentFlags().StringVar(&dir, "dir", "", "Only process .tf files in this directory (no recursion)")
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "local",
+		Short: "Point sources at local sibling checkouts",
+		Long: `Rewrites every pinned git source under the current directory to a relative path
+pointing at a sibling checkout of that repo. The dependency repo must be cloned
+alongside this repo's git root, in a directory named after the repo. Validates
+every source first; if any sibling checkout is missing, nothing is written.
+
+  wand source local
+  wand source local --dir stacks/prod`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			files, err := sourceFiles(dir)
+			if err != nil {
+				return err
+			}
+			return source.Local(files)
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "remote",
+		Short: "Restore sources to their pinned git refs",
+		Long: `Restores each swapped source to the exact git ref preserved in the comment.
+Only removes a local-path line it can positively identify, so a hand-edit
+inside a swapped block is reported rather than deleted.
+
+  wand source remote
+  wand source remote --dir stacks/prod`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			files, err := sourceFiles(dir)
+			if err != nil {
+				return err
+			}
+			return source.Remote(files)
+		},
+	})
+
+	st := &cobra.Command{
+		Use:   "status",
+		Short: "List active local source swaps",
+		Long: `Lists active swaps. --check exits nonzero when any exist, which makes it
+usable as a pre-commit guard against committing a dev-machine-only local path.
+
+  wand source status
+  wand source status --check`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			files, err := sourceFiles(dir)
+			if err != nil {
+				return err
+			}
+			return source.Status(files, check)
+		},
+	}
+	st.Flags().BoolVar(&check, "check", false, "Exit nonzero if any local source swap is active")
+	cmd.AddCommand(st)
 	return cmd
 }

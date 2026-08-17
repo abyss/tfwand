@@ -2,12 +2,11 @@ package pin
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/abyss/tfwand/internal/tffiles"
 	"github.com/fatih/color"
 )
 
@@ -73,17 +72,7 @@ func UpdateModule(root, modulePath, version string) error {
 
 func walkAndUpdate(root string, transform func(string) string) (int, error) {
 	var count int
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() && d.Name() == ".terraform" {
-			return filepath.SkipDir
-		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".tf") {
-			return nil
-		}
-
+	err := tffiles.WalkFiles(root, func(path string) error {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
