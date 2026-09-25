@@ -96,6 +96,19 @@ wand apply all --exclude prod
 wand apply git --exclude prod --exclude staging/legacy
 ```
 
+### Upgrade
+
+Run `tf init -upgrade` across multiple directories. A failure in one directory does not stop the rest; failed directories are listed at the end and the command exits nonzero:
+
+```bash
+wand upgrade all         # all directories containing .tf files
+wand upgrade git         # directories with git changes
+wand upgrade staged      # directories with staged git changes
+wand upgrade dir ./prod  # a single directory
+```
+
+`--exclude` works the same as for `apply`.
+
 ### Options
 
 The `tf` binary defaults to `tf`. Override with a flag or environment variable:

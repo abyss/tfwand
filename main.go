@@ -36,6 +36,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(pinCmd())
 	root.AddCommand(applyCmd())
 	root.AddCommand(planCmd())
+	root.AddCommand(upgradeCmd())
 	root.AddCommand(sourceCmd())
 
 	return root
@@ -104,110 +105,64 @@ func sourceFiles(dir string) ([]string, error) {
 	return tffiles.Files(".")
 }
 
-// ── apply ────────────────────────────────────────────────────────────────────
-
-func applyCmd() *cobra.Command {
+// dirCmd builds a command whose git/all/staged/dir subcommands pass the selected
+// directories to run. action is the help-text verb phrase, e.g. "Apply in".
+func dirCmd(use, short, action string, run func(dirs []string, tfBin string) error) *cobra.Command {
 	var excludes []string
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Run tf init + tf apply across Terraform directories",
-	}
+	cmd := &cobra.Command{Use: use, Short: short}
 	cmd.PersistentFlags().StringArrayVar(&excludes, "exclude", nil, "Exclude directories matching this prefix (repeatable)")
-	cmd.AddCommand(&cobra.Command{
-		Use:   "git",
-		Short: "Apply in all directories with git changes",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := gitfiles.ChangedDirs(".")
+
+	scoped := func(find func(root string) ([]string, error)) func(*cobra.Command, []string) error {
+		return func(*cobra.Command, []string) error {
+			dirs, err := find(".")
 			if err != nil {
 				return err
 			}
-			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
-		},
+			return run(filterDirs(dirs, excludes), tfBin)
+		}
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "git",
+		Short: action + " directories with git changes",
+		RunE:  scoped(gitfiles.ChangedDirs),
 	})
 	cmd.AddCommand(&cobra.Command{
 		Use:   "all",
-		Short: "Apply in all directories containing .tf files",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := tffiles.FindDirs(".")
-			if err != nil {
-				return err
-			}
-			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
-		},
+		Short: action + " all directories containing .tf files",
+		RunE:  scoped(tffiles.FindDirs),
 	})
 	cmd.AddCommand(&cobra.Command{
 		Use:   "staged",
-		Short: "Apply in directories with staged git changes",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := gitfiles.StagedDirs(".")
-			if err != nil {
-				return err
-			}
-			return workflow.Apply(filterDirs(dirs, excludes), tfBin)
-		},
+		Short: action + " directories with staged git changes",
+		RunE:  scoped(gitfiles.StagedDirs),
 	})
 	cmd.AddCommand(&cobra.Command{
 		Use:   "dir <path>",
-		Short: "Apply in a specific directory",
+		Short: action + " a specific directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return workflow.Apply([]string{args[0]}, tfBin)
+			return run([]string{args[0]}, tfBin)
 		},
 	})
 	return cmd
 }
 
+// ── apply ────────────────────────────────────────────────────────────────────
+
+func applyCmd() *cobra.Command {
+	return dirCmd("apply", "Run tf init + tf apply across Terraform directories", "Apply in", workflow.Apply)
+}
+
 // ── plan ─────────────────────────────────────────────────────────────────────
 
 func planCmd() *cobra.Command {
-	var excludes []string
-	cmd := &cobra.Command{
-		Use:   "plan",
-		Short: "Run tf plan and summarize results across Terraform directories",
-	}
-	cmd.PersistentFlags().StringArrayVar(&excludes, "exclude", nil, "Exclude directories matching this prefix (repeatable)")
-	cmd.AddCommand(&cobra.Command{
-		Use:   "git",
-		Short: "Summarize plan for directories with git changes",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := gitfiles.ChangedDirs(".")
-			if err != nil {
-				return err
-			}
-			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "all",
-		Short: "Summarize plan for all directories containing .tf files",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := tffiles.FindDirs(".")
-			if err != nil {
-				return err
-			}
-			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "staged",
-		Short: "Summarize plan for directories with staged git changes",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			dirs, err := gitfiles.StagedDirs(".")
-			if err != nil {
-				return err
-			}
-			return workflow.Plan(filterDirs(dirs, excludes), tfBin)
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "dir <path>",
-		Short: "Summarize plan for a specific directory",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return workflow.Plan([]string{args[0]}, tfBin)
-		},
-	})
-	return cmd
+	return dirCmd("plan", "Run tf plan and summarize results across Terraform directories", "Summarize plan for", workflow.Plan)
+}
+
+// ── upgrade ──────────────────────────────────────────────────────────────────
+
+func upgradeCmd() *cobra.Command {
+	return dirCmd("upgrade", "Run tf init -upgrade across Terraform directories", "Upgrade in", workflow.Upgrade)
 }
 
 // ── source ───────────────────────────────────────────────────────────────────
